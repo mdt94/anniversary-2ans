@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
-import AddMemoryModal from './AddMemoryModal'
+import { useEffect, useMemo, useState } from 'react'
+import MemoryDetailModal from './MemoryDetailModal'
+import MemoryFormModal from './MemoryFormModal'
 import ScrollReveal from './ScrollReveal'
 import { useMemories } from '../hooks/useMemories'
+import { getStoredToken } from '../services/memories'
 
 const STATIC_STEPS = [
   {
@@ -13,6 +15,8 @@ const STATIC_STEPS = [
       'Le soir où nos regards se sont croisés à 21h, et où tout a commencé, comme dans un film dont on ne voulait pas que la fin arrive.',
     gradient: 'from-blush-200 via-blush-100 to-cream',
     icon: '✨',
+    photos: [],
+    custom: false,
   },
   {
     id: 'static-trip',
@@ -23,6 +27,8 @@ const STATIC_STEPS = [
       'Nos valises pleines de rêves, des routes inconnues et des souvenirs gravés pour toujours dans nos cœurs.',
     gradient: 'from-rose-100 via-blush-50 to-cream',
     icon: '🌸',
+    photos: [],
+    custom: false,
   },
   {
     id: 'static-one-year',
@@ -33,6 +39,8 @@ const STATIC_STEPS = [
       "365 jours de rires, de complicité et de moments magiques. Une première bougie sur notre gâteau d'amour.",
     gradient: 'from-blush-300/40 via-blush-100 to-cream',
     icon: '🎂',
+    photos: [],
+    custom: false,
   },
   {
     id: 'static-two-years',
@@ -43,6 +51,8 @@ const STATIC_STEPS = [
       'Deux années de bonheur partagé — et chaque jour qui suit est un nouveau chapitre. La plus belle aventure continue…',
     gradient: 'from-rose-gold/30 via-blush-100 to-cream',
     icon: '💕',
+    photos: [],
+    custom: false,
   },
 ]
 
@@ -69,7 +79,7 @@ function normalizeCustomMemory(memory) {
   }
 }
 
-function TimelineStep({ step, index }) {
+function TimelineStep({ step, index, onOpen }) {
   const isEven = index % 2 === 0
   const variant = isEven ? 'left' : 'right'
   const hasPhotos = step.photos?.length > 0
@@ -86,7 +96,11 @@ function TimelineStep({ step, index }) {
         delay={index * 120}
         className="w-full md:w-[calc(50%-2rem)]"
       >
-        <div className="group rounded-2xl bg-white/60 p-6 shadow-md shadow-blush-100/50 backdrop-blur-sm transition-shadow hover:shadow-lg hover:shadow-blush-200/40">
+        <button
+          type="button"
+          onClick={() => onOpen(step)}
+          className="group w-full rounded-2xl bg-white/60 p-6 text-left shadow-md shadow-blush-100/50 backdrop-blur-sm transition hover:shadow-lg hover:shadow-blush-200/40"
+        >
           <span className="text-2xl">{step.icon}</span>
           <p className="mt-2 text-xs font-medium uppercase tracking-widest text-blush-400">
             {step.date}
@@ -97,7 +111,10 @@ function TimelineStep({ step, index }) {
           {step.description && (
             <p className="mt-3 leading-relaxed text-dusty">{step.description}</p>
           )}
-        </div>
+          <p className="mt-4 text-xs font-medium uppercase tracking-widest text-blush-400 opacity-0 transition group-hover:opacity-100">
+            Voir le souvenir →
+          </p>
+        </button>
       </ScrollReveal>
 
       <ScrollReveal
@@ -106,7 +123,9 @@ function TimelineStep({ step, index }) {
         className="mt-6 w-full md:mt-0 md:w-[calc(50%-2rem)]"
       >
         {hasPhotos ? (
-          <div
+          <button
+            type="button"
+            onClick={() => onOpen(step)}
             className={`mx-auto grid max-w-sm gap-3 md:mx-0 ${
               step.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
             }`}
@@ -123,29 +142,18 @@ function TimelineStep({ step, index }) {
                 />
               </div>
             ))}
-          </div>
+          </button>
         ) : (
-          <div
-            className={`mx-auto aspect-[4/3] max-w-sm overflow-hidden rounded-2xl bg-gradient-to-br ${step.gradient} shadow-lg shadow-blush-200/30 transition-transform duration-500 group-hover:scale-[1.02] md:mx-0`}
+          <button
+            type="button"
+            onClick={() => onOpen(step)}
+            className={`mx-auto aspect-[4/3] max-w-sm overflow-hidden rounded-2xl bg-gradient-to-br ${step.gradient} shadow-lg shadow-blush-200/30 transition-transform duration-500 hover:scale-[1.02] md:mx-0`}
           >
             <div className="flex h-full flex-col items-center justify-center gap-2 text-dusty/50">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-12 w-12"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span className="text-sm font-medium">Votre photo ici</span>
+              <span className="text-4xl">{step.icon}</span>
+              <span className="text-sm font-medium">Ouvrir le souvenir</span>
             </div>
-          </div>
+          </button>
         )}
       </ScrollReveal>
     </div>
@@ -153,8 +161,20 @@ function TimelineStep({ step, index }) {
 }
 
 export default function Timeline() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const { memories, addMemory } = useMemories()
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState('create')
+  const [editingMemory, setEditingMemory] = useState(null)
+  const [selectedStep, setSelectedStep] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(Boolean(getStoredToken()))
+
+  const { memories, addMemory, replaceMemory, deleteMemory } = useMemories()
+
+  useEffect(() => {
+    const syncAdmin = () => setIsAdmin(Boolean(getStoredToken()))
+    syncAdmin()
+    window.addEventListener('storage', syncAdmin)
+    return () => window.removeEventListener('storage', syncAdmin)
+  }, [formOpen, selectedStep])
 
   const steps = useMemo(() => {
     const customSteps = memories.map(normalizeCustomMemory)
@@ -162,6 +182,49 @@ export default function Timeline() {
       a.sortDate.localeCompare(b.sortDate),
     )
   }, [memories])
+
+  const openCreateForm = () => {
+    setFormMode('create')
+    setEditingMemory(null)
+    setFormOpen(true)
+  }
+
+  const openEditForm = (step) => {
+    setFormMode('edit')
+    setEditingMemory({
+      id: step.id,
+      title: step.title,
+      date: step.sortDate,
+      photos: step.photos ?? [],
+    })
+    setSelectedStep(null)
+    setFormOpen(true)
+  }
+
+  const handleDelete = async (step) => {
+    const confirmed = window.confirm(
+      `Supprimer le souvenir « ${step.title} » ?`,
+    )
+    if (!confirmed) return
+
+    try {
+      await deleteMemory(step.id)
+      setSelectedStep(null)
+    } catch (error) {
+      window.alert(error.message)
+    }
+  }
+
+  const handleFormSuccess = (memory) => {
+    if (formMode === 'edit') {
+      replaceMemory(memory)
+      setIsAdmin(true)
+      return
+    }
+
+    addMemory(memory)
+    setIsAdmin(true)
+  }
 
   return (
     <section id="timeline" className="relative px-6 py-24 sm:py-32">
@@ -177,7 +240,7 @@ export default function Timeline() {
 
           <button
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={openCreateForm}
             className="mt-6 inline-flex items-center gap-2 rounded-full border border-blush-200 bg-white/70 px-5 py-2.5 text-sm font-medium text-dusty shadow-sm transition hover:border-blush-300 hover:text-blush-500"
           >
             <span aria-hidden="true">🔒</span>
@@ -192,15 +255,31 @@ export default function Timeline() {
           />
 
           {steps.map((step, index) => (
-            <TimelineStep key={step.id} step={step} index={index} />
+            <TimelineStep
+              key={step.id}
+              step={step}
+              index={index}
+              onOpen={setSelectedStep}
+            />
           ))}
         </div>
       </div>
 
-      <AddMemoryModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={addMemory}
+      <MemoryDetailModal
+        open={Boolean(selectedStep)}
+        step={selectedStep}
+        isAdmin={isAdmin}
+        onClose={() => setSelectedStep(null)}
+        onEdit={openEditForm}
+        onDelete={handleDelete}
+      />
+
+      <MemoryFormModal
+        open={formOpen}
+        mode={formMode}
+        memory={editingMemory}
+        onClose={() => setFormOpen(false)}
+        onSuccess={handleFormSuccess}
       />
     </section>
   )

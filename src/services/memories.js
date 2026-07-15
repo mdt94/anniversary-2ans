@@ -223,3 +223,84 @@ export async function createMemory({ title, date, photoFiles }) {
 
   return data
 }
+
+export async function updateMemory(id, { title, date, existingPhotos = [], photoFiles = [] }) {
+  if (isLocalMode()) {
+    const newPhotos =
+      photoFiles.length > 0
+        ? await Promise.all(
+            photoFiles.map(async (file) => {
+              const dataUrl = await readFileAsDataUrl(await compressImage(file))
+              return dataUrl
+            }),
+          )
+        : []
+
+    const memories = readLocalMemories()
+    const index = memories.findIndex((memory) => memory.id === id)
+    if (index === -1) throw new Error('Souvenir introuvable')
+
+    const updated = {
+      ...memories[index],
+      title: title.trim(),
+      date,
+      photos: [...existingPhotos, ...newPhotos],
+      updatedAt: new Date().toISOString(),
+    }
+
+    memories[index] = updated
+    writeLocalMemories(memories)
+    return updated
+  }
+
+  const uploadedUrls =
+    photoFiles.length > 0 ? await uploadPhotos(photoFiles) : []
+  const token = getStoredToken()
+
+  const response = await fetchWithTimeout(`/api/memories/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      title,
+      date,
+      photoUrls: [...existingPhotos, ...uploadedUrls],
+    }),
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Erreur lors de la modification')
+  }
+
+  return data
+}
+
+export async function deleteMemory(id) {
+  if (isLocalMode()) {
+    const memories = readLocalMemories()
+    const next = memories.filter((memory) => memory.id !== id)
+    if (next.length === memories.length) {
+      throw new Error('Souvenir introuvable')
+    }
+    writeLocalMemories(next)
+    return { ok: true }
+  }
+
+  const token = getStoredToken()
+  const response = await fetchWithTimeout(`/api/memories/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Erreur lors de la suppression')
+  }
+
+  return data
+}

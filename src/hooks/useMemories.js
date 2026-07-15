@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchMemories } from '../services/memories'
+import {
+  deleteMemory as deleteMemoryRequest,
+  fetchMemories,
+  updateMemory as updateMemoryRequest,
+} from '../services/memories'
 
 export function useMemories() {
   const [memories, setMemories] = useState([])
@@ -29,5 +33,42 @@ export function useMemories() {
     setMemories((current) => [...current, memory])
   }, [])
 
-  return { memories, loading, error, reloadMemories: loadMemories, addMemory }
+  const replaceMemory = useCallback((memory) => {
+    setMemories((current) =>
+      current.map((item) => (item.id === memory.id ? memory : item)),
+    )
+  }, [])
+
+  const removeMemory = useCallback((id) => {
+    setMemories((current) => current.filter((item) => item.id !== id))
+  }, [])
+
+  const updateMemory = useCallback(
+    async (id, payload) => {
+      const updated = await updateMemoryRequest(id, payload)
+      replaceMemory(updated)
+      return updated
+    },
+    [replaceMemory],
+  )
+
+  const deleteMemory = useCallback(
+    async (id) => {
+      await deleteMemoryRequest(id)
+      removeMemory(id)
+    },
+    [removeMemory],
+  )
+
+  return {
+    memories,
+    loading,
+    error,
+    reloadMemories: loadMemories,
+    addMemory,
+    replaceMemory,
+    removeMemory,
+    updateMemory,
+    deleteMemory,
+  }
 }
