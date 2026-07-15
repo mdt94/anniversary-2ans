@@ -3,20 +3,16 @@ import { head, put } from '@vercel/blob'
 const MEMORIES_PATH = 'memories/data.json'
 
 function blobOptions(extra = {}) {
-  const options = { access: 'public', ...extra }
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    options.token = process.env.BLOB_READ_WRITE_TOKEN
-  }
-
-  return options
+  return { access: 'public', ...extra }
 }
 
 function isBlobMissing(error) {
+  const message = error?.message?.toLowerCase() ?? ''
   return (
     error?.name === 'BlobNotFoundError' ||
     error?.statusCode === 404 ||
-    error?.message?.toLowerCase().includes('not found')
+    message.includes('not found') ||
+    message.includes('does not exist')
   )
 }
 
@@ -25,14 +21,15 @@ function isBlobAuthError(error) {
   return (
     message.includes('no blob credentials') ||
     message.includes('no read-write token') ||
-    message.includes('access denied')
+    message.includes('access denied') ||
+    message.includes('store does not exist')
   )
 }
 
 function formatBlobError(error) {
   if (isBlobAuthError(error)) {
     return new Error(
-      'Vercel Blob non connecté. Storage → connecte un Blob Store → Redeploy.',
+      'Blob non connecté. Va dans Vercel → Storage → connecte le Blob Store au projet, puis Redeploy.',
     )
   }
   return error

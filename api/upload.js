@@ -14,11 +14,17 @@ export default async function handler(req, res) {
     return sendJson(res, 401, { error: 'Session expirée. Reconnecte-toi.' })
   }
 
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) {
+    return sendJson(res, 500, {
+      error:
+        'Blob non configuré. Vercel → Storage → connecte un Blob Store au projet.',
+    })
+  }
+
   try {
     const jsonResponse = await handleUpload({
       body: req.body,
       request: req,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: [
           'image/jpeg',
@@ -38,7 +44,7 @@ export default async function handler(req, res) {
     return sendJson(res, 400, {
       error:
         error.message ??
-        'Upload impossible. Vérifie que Vercel Blob est connecté puis redeploy.',
+        'Upload impossible. Connecte Vercel Blob au projet puis Redeploy.',
     })
   }
 }
