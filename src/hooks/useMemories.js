@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   deleteMemory as deleteMemoryRequest,
   fetchMemories,
+  fetchStaticPhotos,
   updateMemory as updateMemoryRequest,
 } from '../services/memories'
 
 export function useMemories() {
   const [memories, setMemories] = useState([])
+  const [staticPhotos, setStaticPhotos] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -15,11 +17,16 @@ export function useMemories() {
     setError(null)
 
     try {
-      const data = await fetchMemories()
-      setMemories(data)
+      const [customMemories, photos] = await Promise.all([
+        fetchMemories(),
+        fetchStaticPhotos(),
+      ])
+      setMemories(customMemories)
+      setStaticPhotos(photos)
     } catch (err) {
       setError(err.message)
       setMemories([])
+      setStaticPhotos({})
     } finally {
       setLoading(false)
     }
@@ -43,6 +50,13 @@ export function useMemories() {
     setMemories((current) => current.filter((item) => item.id !== id))
   }, [])
 
+  const updateStaticPhotos = useCallback((memoryId, photos) => {
+    setStaticPhotos((current) => ({
+      ...current,
+      [memoryId]: photos,
+    }))
+  }, [])
+
   const updateMemory = useCallback(
     async (id, payload) => {
       const updated = await updateMemoryRequest(id, payload)
@@ -62,12 +76,14 @@ export function useMemories() {
 
   return {
     memories,
+    staticPhotos,
     loading,
     error,
     reloadMemories: loadMemories,
     addMemory,
     replaceMemory,
     removeMemory,
+    updateStaticPhotos,
     updateMemory,
     deleteMemory,
   }

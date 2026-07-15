@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import MemoryDetailModal from './MemoryDetailModal'
 import MemoryFormModal from './MemoryFormModal'
+import MemoryPhotosModal from './MemoryPhotosModal'
 import ScrollReveal from './ScrollReveal'
 import { useMemories } from '../hooks/useMemories'
 import { getStoredToken } from '../services/memories'
@@ -162,26 +163,39 @@ function TimelineStep({ step, index, onOpen }) {
 
 export default function Timeline() {
   const [formOpen, setFormOpen] = useState(false)
+  const [photosOpen, setPhotosOpen] = useState(false)
   const [formMode, setFormMode] = useState('create')
   const [editingMemory, setEditingMemory] = useState(null)
+  const [photosMemory, setPhotosMemory] = useState(null)
   const [selectedStep, setSelectedStep] = useState(null)
   const [isAdmin, setIsAdmin] = useState(Boolean(getStoredToken()))
 
-  const { memories, addMemory, replaceMemory, deleteMemory } = useMemories()
+  const {
+    memories,
+    staticPhotos,
+    addMemory,
+    replaceMemory,
+    updateStaticPhotos,
+    deleteMemory,
+  } = useMemories()
 
   useEffect(() => {
     const syncAdmin = () => setIsAdmin(Boolean(getStoredToken()))
     syncAdmin()
     window.addEventListener('storage', syncAdmin)
     return () => window.removeEventListener('storage', syncAdmin)
-  }, [formOpen, selectedStep])
+  }, [formOpen, photosOpen, selectedStep])
 
   const steps = useMemo(() => {
+    const staticWithPhotos = STATIC_STEPS.map((step) => ({
+      ...step,
+      photos: staticPhotos[step.id] ?? [],
+    }))
     const customSteps = memories.map(normalizeCustomMemory)
-    return [...STATIC_STEPS, ...customSteps].sort((a, b) =>
+    return [...staticWithPhotos, ...customSteps].sort((a, b) =>
       a.sortDate.localeCompare(b.sortDate),
     )
-  }, [memories])
+  }, [memories, staticPhotos])
 
   const openCreateForm = () => {
     setFormMode('create')
@@ -201,6 +215,15 @@ export default function Timeline() {
     setFormOpen(true)
   }
 
+  const openPhotosForm = (step) => {
+    setPhotosMemory({
+      id: step.id,
+      title: step.title,
+    })
+    setSelectedStep(null)
+    setPhotosOpen(true)
+  }
+
   const handleDelete = async (step) => {
     const confirmed = window.confirm(
       `Supprimer le souvenir « ${step.title} » ?`,
@@ -218,13 +241,24 @@ export default function Timeline() {
   const handleFormSuccess = (memory) => {
     if (formMode === 'edit') {
       replaceMemory(memory)
-      setIsAdmin(true)
-      return
+    } else {
+      addMemory(memory)
     }
-
-    addMemory(memory)
     setIsAdmin(true)
   }
+
+  const handlePhotosSuccess = (result, memory) => {
+    if (memory.id.startsWith('static-')) {
+      updateStaticPhotos(memory.id, result.photos)
+    } else {
+      replaceMemory(result)
+    }
+    setIsAdmin(true)
+  }
+
+  const selectedStepLive = selectedStep
+    ? steps.find((step) => step.id === selectedStep.id) ?? selectedStep
+    : null
 
   return (
     <section id="timeline" className="relative px-6 py-24 sm:py-32">
@@ -266,12 +300,13 @@ export default function Timeline() {
       </div>
 
       <MemoryDetailModal
-        open={Boolean(selectedStep)}
-        step={selectedStep}
+        open={Boolean(selectedStepLive)}
+        step={selectedStepLive}
         isAdmin={isAdmin}
         onClose={() => setSelectedStep(null)}
         onEdit={openEditForm}
         onDelete={handleDelete}
+        onAddPhotos={openPhotosForm}
       />
 
       <MemoryFormModal
@@ -280,6 +315,13 @@ export default function Timeline() {
         memory={editingMemory}
         onClose={() => setFormOpen(false)}
         onSuccess={handleFormSuccess}
+      />
+
+      <MemoryPhotosModal
+        open={photosOpen}
+        memory={photosMemory}
+        onClose={() => setPhotosOpen(false)}
+        onSuccess={handlePhotosSuccess}
       />
     </section>
   )

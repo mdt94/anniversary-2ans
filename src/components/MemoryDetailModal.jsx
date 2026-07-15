@@ -8,6 +8,7 @@ export default function MemoryDetailModal({
   onClose,
   onEdit,
   onDelete,
+  onAddPhotos,
 }) {
   const [index, setIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -204,22 +205,33 @@ export default function MemoryDetailModal({
             )}
           </div>
 
-          {isAdmin && step.custom && (
+          {isAdmin && (
             <div className="flex flex-wrap gap-3 border-t border-blush-100 px-6 py-4 sm:px-8">
               <button
                 type="button"
-                onClick={() => onEdit(step)}
+                onClick={() => onAddPhotos(step)}
                 className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
               >
-                Modifier
+                Ajouter des photos
               </button>
-              <button
-                type="button"
-                onClick={() => onDelete(step)}
-                className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-              >
-                Supprimer
-              </button>
+              {step.custom && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(step)}
+                    className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(step)}
+                    className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                  >
+                    Supprimer
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

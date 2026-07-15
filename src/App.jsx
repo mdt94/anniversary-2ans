@@ -1,6 +1,5 @@
 import Hero from './components/Hero'
 import Timeline from './components/Timeline'
-import Gallery from './components/Gallery'
 import Letter from './components/Letter'
 import { useRelationshipDuration } from './hooks/useRelationshipDuration'
 import {
@@ -29,7 +28,6 @@ export default function App() {
     <div className="relative overflow-x-hidden">
       <Hero />
       <Timeline />
-      <Gallery />
       <Letter />
       <Footer />
     </div>

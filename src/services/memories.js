@@ -1,8 +1,10 @@
 import { upload } from '@vercel/blob/client'
 
 const STORAGE_KEY = 'anniversary-custom-memories'
+const STATIC_PHOTOS_KEY = 'anniversary-static-photos'
 const TOKEN_KEY = 'anniversary-admin-token'
 const REQUEST_TIMEOUT_MS = 20_000
+const REMOVED_TEST_DATES = new Set(['2022-06-15', '2026-07-17'])
 
 function isLocalMode() {
   return import.meta.env.DEV && !import.meta.env.VITE_USE_API
@@ -10,10 +12,23 @@ function isLocalMode() {
 
 function readLocalMemories() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const memories = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    return memories.filter((memory) => !REMOVED_TEST_DATES.has(memory.date))
   } catch {
     return []
   }
+}
+
+function readLocalStaticPhotos() {
+  try {
+    return JSON.parse(localStorage.getItem(STATIC_PHOTOS_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeLocalStaticPhotos(photos) {
+  localStorage.setItem(STATIC_PHOTOS_KEY, JSON.stringify(photos))
 }
 
 function writeLocalMemories(memories) {
@@ -300,6 +315,72 @@ export async function deleteMemory(id) {
   const data = await parseJsonResponse(response)
   if (!response.ok) {
     throw new Error(data.error ?? 'Erreur lors de la suppression')
+  }
+
+  return data
+}
+
+export async function fetchStaticPhotos() {
+  if (isLocalMode()) {
+    return readLocalStaticPhotos()
+  }
+
+  const response = await fetchWithTimeout('/api/static-photos')
+  const data = await parseJsonResponse(response)
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Impossible de charger les photos')
+  }
+
+  return data
+}
+
+export async function appendPhotosToMemory(memoryId, photoFiles) {
+  const photoUrls = photoFiles.length > 0 ? await uploadPhotos(photoFiles) : []
+
+  if (photoUrls.length === 0) {
+    throw new Error('Ajoute au moins une photo')
+  }
+
+  if (isLocalMode()) {
+    if (memoryId.startsWith('static-')) {
+      const staticPhotos = readLocalStaticPhotos()
+      const existing = Array.isArray(staticPhotos[memoryId])
+        ? staticPhotos[memoryId]
+        : []
+      staticPhotos[memoryId] = [...existing, ...photoUrls]
+      writeLocalStaticPhotos(staticPhotos)
+      return { id: memoryId, photos: staticPhotos[memoryId] }
+    }
+
+    const memories = readLocalMemories()
+    const index = memories.findIndex((memory) => memory.id === memoryId)
+    if (index === -1) throw new Error('Souvenir introuvable')
+
+    const updated = {
+      ...memories[index],
+      photos: [...(memories[index].photos ?? []), ...photoUrls],
+      updatedAt: new Date().toISOString(),
+    }
+
+    memories[index] = updated
+    writeLocalMemories(memories)
+    return updated
+  }
+
+  const token = getStoredToken()
+  const response = await fetchWithTimeout(`/api/memories/${memoryId}/photos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ photoUrls }),
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Erreur lors de l\'ajout des photos')
   }
 
   return data

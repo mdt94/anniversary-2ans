@@ -1,7 +1,6 @@
 import { head, put } from '@vercel/blob'
 
-const MEMORIES_PATH = 'memories/data.json'
-const REMOVED_TEST_DATES = new Set(['2022-06-15', '2026-07-17'])
+const STATIC_PHOTOS_PATH = 'memories/static-photos.json'
 
 function blobOptions(extra = {}) {
   return { access: 'public', ...extra }
@@ -36,46 +35,35 @@ function formatBlobError(error) {
   return error
 }
 
-async function readJson(path, fallback) {
+export async function getStaticPhotos() {
   try {
-    const blob = await head(path, blobOptions())
+    const blob = await head(STATIC_PHOTOS_PATH, blobOptions())
     const response = await fetch(blob.url)
-    if (!response.ok) return fallback
+    if (!response.ok) return {}
 
-    return await response.json()
+    const data = await response.json()
+    return data && typeof data === 'object' ? data : {}
   } catch (error) {
-    if (isBlobMissing(error)) return fallback
+    if (isBlobMissing(error)) return {}
     throw formatBlobError(error)
   }
 }
 
-async function writeJson(path, data) {
-  await put(path, JSON.stringify(data), {
+export async function appendStaticPhotos(staticId, photoUrls = []) {
+  const current = await getStaticPhotos()
+  const existing = Array.isArray(current[staticId]) ? current[staticId] : []
+
+  const next = {
+    ...current,
+    [staticId]: [...existing, ...photoUrls],
+  }
+
+  await put(STATIC_PHOTOS_PATH, JSON.stringify(next), {
     ...blobOptions(),
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
   })
-}
 
-export async function getMemories() {
-  const data = await readJson(MEMORIES_PATH, [])
-  const memories = Array.isArray(data) ? data : []
-  const cleaned = memories.filter(
-    (memory) => !REMOVED_TEST_DATES.has(memory.date),
-  )
-
-  if (cleaned.length !== memories.length) {
-    await saveMemories(cleaned)
-  }
-
-  return cleaned
-}
-
-export async function saveMemories(memories) {
-  try {
-    await writeJson(MEMORIES_PATH, memories)
-  } catch (error) {
-    throw formatBlobError(error)
-  }
+  return next[staticId]
 }
