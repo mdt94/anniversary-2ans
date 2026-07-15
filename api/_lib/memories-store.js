@@ -32,7 +32,7 @@ function isBlobAuthError(error) {
 function formatBlobError(error) {
   if (isBlobAuthError(error)) {
     return new Error(
-      'Stockage Blob non connecté. Va dans Vercel → Storage → connecte un Blob Store, puis Redeploy.',
+      'Vercel Blob non connecté. Storage → connecte un Blob Store → Redeploy.',
     )
   }
   return error
@@ -63,36 +63,4 @@ export async function saveMemories(memories) {
   } catch (error) {
     throw formatBlobError(error)
   }
-}
-
-export async function uploadPhoto(id, name, base64Data) {
-  const buffer = Buffer.from(base64Data, 'base64')
-  const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const pathname = `memories/photos/${id}-${safeName}`
-
-  try {
-    const blob = await put(pathname, buffer, {
-      ...blobOptions(),
-      contentType: guessContentType(safeName),
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    })
-
-    return blob.url
-  } catch (error) {
-    throw formatBlobError(error)
-  }
-}
-
-function guessContentType(filename) {
-  const ext = filename.split('.').pop()?.toLowerCase()
-  const types = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    webp: 'image/webp',
-    gif: 'image/gif',
-    heic: 'image/heic',
-  }
-  return types[ext] ?? 'application/octet-stream'
 }

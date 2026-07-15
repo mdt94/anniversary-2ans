@@ -1,3 +1,5 @@
+import { upload } from '@vercel/blob/client'
+
 const STORAGE_KEY = 'anniversary-custom-memories'
 const TOKEN_KEY = 'anniversary-admin-token'
 const REQUEST_TIMEOUT_MS = 20_000
@@ -27,7 +29,7 @@ async function fetchWithTimeout(url, options = {}) {
   } catch (error) {
     if (error.name === 'AbortError') {
       throw new Error(
-        'Le serveur met trop de temps à répondre. Vérifie la configuration Vercel (variables + Blob).',
+        'Le serveur met trop de temps à répondre. Vérifie la configuration Vercel.',
       )
     }
     throw new Error('Impossible de contacter le serveur.')
@@ -60,7 +62,7 @@ async function readFileAsDataUrl(file) {
 async function compressImage(file, maxWidth = 1200, quality = 0.82) {
   if (!file.type.startsWith('image/')) return file
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const image = new Image()
     const objectUrl = URL.createObjectURL(file)
 
@@ -101,6 +103,29 @@ async function compressImage(file, maxWidth = 1200, quality = 0.82) {
 
     image.src = objectUrl
   })
+}
+
+async function uploadPhotos(photoFiles) {
+  const token = getStoredToken()
+  const compressedFiles = await Promise.all(
+    photoFiles.map((file) => compressImage(file)),
+  )
+
+  const urls = []
+
+  for (const file of compressedFiles) {
+    const result = await upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    urls.push(result.url)
+  }
+
+  return urls
 }
 
 export function getStoredToken() {
@@ -152,27 +177,19 @@ export async function verifyPassword(password) {
 }
 
 export async function createMemory({ title, date, photoFiles }) {
-  const compressedFiles = await Promise.all(
-    photoFiles.map((file) => compressImage(file)),
-  )
-
-  const photos = await Promise.all(
-    compressedFiles.map(async (file) => {
-      const dataUrl = await readFileAsDataUrl(file)
-      return {
-        name: file.name,
-        data: dataUrl.split(',')[1],
-        preview: dataUrl,
-      }
-    }),
-  )
-
   if (isLocalMode()) {
+    const photos = await Promise.all(
+      photoFiles.map(async (file) => {
+        const dataUrl = await readFileAsDataUrl(await compressImage(file))
+        return dataUrl
+      }),
+    )
+
     const memory = {
       id: crypto.randomUUID(),
       title: title.trim(),
       date,
-      photos: photos.map((photo) => photo.preview),
+      photos,
       createdAt: new Date().toISOString(),
       custom: true,
     }
@@ -183,7 +200,9 @@ export async function createMemory({ title, date, photoFiles }) {
     return memory
   }
 
+  const photoUrls = photoFiles.length > 0 ? await uploadPhotos(photoFiles) : []
   const token = getStoredToken()
+
   const response = await fetchWithTimeout('/api/memories', {
     method: 'POST',
     headers: {
@@ -193,7 +212,7 @@ export async function createMemory({ title, date, photoFiles }) {
     body: JSON.stringify({
       title,
       date,
-      photos: photos.map(({ name, data }) => ({ name, data })),
+      photoUrls,
     }),
   })
 

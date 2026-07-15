@@ -1,6 +1,6 @@
 import { verifyToken } from './_lib/auth.js'
 import { methodNotAllowed, sendJson } from './_lib/http.js'
-import { getMemories, saveMemories, uploadPhoto } from './_lib/memories-store.js'
+import { getMemories, saveMemories } from './_lib/memories-store.js'
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error('GET /api/memories failed:', error)
       return sendJson(res, 500, {
-        error: 'Impossible de charger les souvenirs',
+        error: error.message ?? 'Impossible de charger les souvenirs',
       })
     }
   }
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { title, date, photos = [] } = req.body ?? {}
+      const { title, date, photoUrls = [] } = req.body ?? {}
 
       if (!title?.trim() || !date) {
         return sendJson(res, 400, {
@@ -34,20 +34,11 @@ export default async function handler(req, res) {
         })
       }
 
-      const id = crypto.randomUUID()
-      const photoUrls = []
-
-      for (const photo of photos) {
-        if (!photo?.data || !photo?.name) continue
-        const url = await uploadPhoto(id, photo.name, photo.data)
-        photoUrls.push(url)
-      }
-
       const memory = {
-        id,
+        id: crypto.randomUUID(),
         title: title.trim(),
         date,
-        photos: photoUrls,
+        photos: Array.isArray(photoUrls) ? photoUrls : [],
         createdAt: new Date().toISOString(),
         custom: true,
       }
