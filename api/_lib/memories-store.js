@@ -1,27 +1,36 @@
-import { list, put } from '@vercel/blob'
+import { head, put } from '@vercel/blob'
 
 const MEMORIES_PATH = 'memories/data.json'
+
+function isBlobMissing(error) {
+  return (
+    error?.name === 'BlobNotFoundError' ||
+    error?.statusCode === 404 ||
+    error?.message?.toLowerCase().includes('not found')
+  )
+}
 
 export async function getMemories() {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return []
 
   try {
-    const { blobs } = await list({ prefix: 'memories/', limit: 100 })
-    const dataBlob = blobs.find((blob) => blob.pathname === MEMORIES_PATH)
-    if (!dataBlob) return []
-
-    const response = await fetch(dataBlob.url)
+    const blob = await head(MEMORIES_PATH)
+    const response = await fetch(blob.url)
     if (!response.ok) return []
 
-    return await response.json()
-  } catch {
-    return []
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    if (isBlobMissing(error)) return []
+    throw error
   }
 }
 
 export async function saveMemories(memories) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error('Stockage non configuré')
+    throw new Error(
+      'Stockage non configuré. Active Vercel Blob dans ton projet.',
+    )
   }
 
   await put(MEMORIES_PATH, JSON.stringify(memories), {
@@ -33,6 +42,12 @@ export async function saveMemories(memories) {
 }
 
 export async function uploadPhoto(id, name, base64Data) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error(
+      'Stockage non configuré. Active Vercel Blob dans ton projet.',
+    )
+  }
+
   const buffer = Buffer.from(base64Data, 'base64')
   const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const pathname = `memories/photos/${id}-${safeName}`

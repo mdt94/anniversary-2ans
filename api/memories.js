@@ -1,26 +1,37 @@
 import { verifyToken } from './_lib/auth.js'
+import { methodNotAllowed, sendJson } from './_lib/http.js'
 import { getMemories, saveMemories, uploadPhoto } from './_lib/memories-store.js'
 
-export default async function handler(request) {
-  if (request.method === 'GET') {
-    const memories = await getMemories()
-    return Response.json(memories)
+export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    try {
+      const memories = await getMemories()
+      return sendJson(res, 200, memories)
+    } catch (error) {
+      console.error('GET /api/memories failed:', error)
+      return sendJson(res, 500, {
+        error: 'Impossible de charger les souvenirs',
+      })
+    }
   }
 
-  if (request.method === 'POST') {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (req.method === 'POST') {
+    const authHeader = req.headers.authorization ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
+
     if (!verifyToken(token)) {
-      return Response.json({ error: 'Non autorisé' }, { status: 401 })
+      return sendJson(res, 401, {
+        error: 'Session expirée. Reconnecte-toi avec le mot de passe.',
+      })
     }
 
     try {
-      const { title, date, photos = [] } = await request.json()
+      const { title, date, photos = [] } = req.body ?? {}
 
       if (!title?.trim() || !date) {
-        return Response.json(
-          { error: 'Le nom et la date sont obligatoires' },
-          { status: 400 },
-        )
+        return sendJson(res, 400, {
+          error: 'Le nom et la date sont obligatoires',
+        })
       }
 
       const id = crypto.randomUUID()
@@ -45,14 +56,14 @@ export default async function handler(request) {
       memories.push(memory)
       await saveMemories(memories)
 
-      return Response.json(memory, { status: 201 })
+      return sendJson(res, 201, memory)
     } catch (error) {
-      return Response.json(
-        { error: error.message ?? 'Erreur lors de la sauvegarde' },
-        { status: 500 },
-      )
+      console.error('POST /api/memories failed:', error)
+      return sendJson(res, 500, {
+        error: error.message ?? 'Erreur lors de la sauvegarde',
+      })
     }
   }
 
-  return Response.json({ error: 'Méthode non autorisée' }, { status: 405 })
+  return methodNotAllowed(res)
 }

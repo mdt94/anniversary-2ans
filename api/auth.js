@@ -1,27 +1,28 @@
 import { createToken, verifyPassword } from './_lib/auth.js'
+import { methodNotAllowed, sendJson } from './_lib/http.js'
 
-export default async function handler(request) {
-  if (request.method !== 'POST') {
-    return Response.json({ error: 'Méthode non autorisée' }, { status: 405 })
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return methodNotAllowed(res)
   }
 
   try {
-    const { password } = await request.json()
+    const { password } = req.body ?? {}
 
     if (!verifyPassword(password)) {
-      return Response.json({ error: 'Mot de passe incorrect' }, { status: 401 })
+      return sendJson(res, 401, { error: 'Mot de passe incorrect' })
     }
 
     const token = createToken()
     if (!token) {
-      return Response.json(
-        { error: 'Configuration serveur incomplète' },
-        { status: 500 },
-      )
+      return sendJson(res, 500, {
+        error:
+          'Configuration incomplète. Ajoute ADMIN_PASSWORD et ADMIN_SECRET sur Vercel.',
+      })
     }
 
-    return Response.json({ token })
+    return sendJson(res, 200, { token })
   } catch {
-    return Response.json({ error: 'Requête invalide' }, { status: 400 })
+    return sendJson(res, 400, { error: 'Requête invalide' })
   }
 }

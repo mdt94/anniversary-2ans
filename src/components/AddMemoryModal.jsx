@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createMemory, getStoredToken, verifyPassword } from '../services/memories'
+import { createMemory, clearStoredToken, getStoredToken, verifyPassword } from '../services/memories'
 
 function PhotoPreview({ file, onRemove }) {
   const [preview, setPreview] = useState('')
@@ -64,6 +64,10 @@ export default function AddMemoryModal({ open, onClose, onSuccess }) {
       await verifyPassword(password)
       setStep('form')
     } catch (err) {
+      if (err.message.includes('Session expirée')) {
+        clearStoredToken()
+        setStep('password')
+      }
       setError(err.message)
     } finally {
       setSubmitting(false)
@@ -86,6 +90,10 @@ export default function AddMemoryModal({ open, onClose, onSuccess }) {
       onSuccess(memory)
       onClose()
     } catch (err) {
+      if (err.message.includes('Session expirée')) {
+        clearStoredToken()
+        setStep('password')
+      }
       setError(err.message)
     } finally {
       setSubmitting(false)
