@@ -2,6 +2,16 @@ import { head, put } from '@vercel/blob'
 
 const MEMORIES_PATH = 'memories/data.json'
 
+function blobOptions(extra = {}) {
+  const options = { access: 'public', ...extra }
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    options.token = process.env.BLOB_READ_WRITE_TOKEN
+  }
+
+  return options
+}
+
 function isBlobMissing(error) {
   return (
     error?.name === 'BlobNotFoundError' ||
@@ -10,11 +20,27 @@ function isBlobMissing(error) {
   )
 }
 
-export async function getMemories() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return []
+function isBlobAuthError(error) {
+  const message = error?.message?.toLowerCase() ?? ''
+  return (
+    message.includes('no blob credentials') ||
+    message.includes('no read-write token') ||
+    message.includes('access denied')
+  )
+}
 
+function formatBlobError(error) {
+  if (isBlobAuthError(error)) {
+    return new Error(
+      'Stockage Blob non connecté. Va dans Vercel → Storage → connecte un Blob Store, puis Redeploy.',
+    )
+  }
+  return error
+}
+
+export async function getMemories() {
   try {
-    const blob = await head(MEMORIES_PATH)
+    const blob = await head(MEMORIES_PATH, blobOptions())
     const response = await fetch(blob.url)
     if (!response.ok) return []
 
@@ -22,44 +48,40 @@ export async function getMemories() {
     return Array.isArray(data) ? data : []
   } catch (error) {
     if (isBlobMissing(error)) return []
-    throw error
+    throw formatBlobError(error)
   }
 }
 
 export async function saveMemories(memories) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      'Stockage non configuré. Active Vercel Blob dans ton projet.',
-    )
+  try {
+    await put(MEMORIES_PATH, JSON.stringify(memories), {
+      ...blobOptions(),
+      contentType: 'application/json',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    })
+  } catch (error) {
+    throw formatBlobError(error)
   }
-
-  await put(MEMORIES_PATH, JSON.stringify(memories), {
-    access: 'public',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  })
 }
 
 export async function uploadPhoto(id, name, base64Data) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      'Stockage non configuré. Active Vercel Blob dans ton projet.',
-    )
-  }
-
   const buffer = Buffer.from(base64Data, 'base64')
   const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const pathname = `memories/photos/${id}-${safeName}`
 
-  const blob = await put(pathname, buffer, {
-    access: 'public',
-    contentType: guessContentType(safeName),
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  })
+  try {
+    const blob = await put(pathname, buffer, {
+      ...blobOptions(),
+      contentType: guessContentType(safeName),
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    })
 
-  return blob.url
+    return blob.url
+  } catch (error) {
+    throw formatBlobError(error)
+  }
 }
 
 function guessContentType(filename) {
