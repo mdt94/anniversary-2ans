@@ -1,8 +1,6 @@
 import { useRelationshipDuration } from '../hooks/useRelationshipDuration'
-import {
-  RELATIONSHIP_START,
-  formatDuration,
-} from '../utils/relationshipDuration'
+import { useSiteConfig } from '../hooks/useSiteConfig'
+import { formatDuration } from '../utils/relationshipDuration'
 import ScrollReveal from './ScrollReveal'
 
 function CountdownUnit({ value, label }) {
@@ -22,15 +20,27 @@ function CountdownUnit({ value, label }) {
 }
 
 export default function Hero() {
-  const { years, days } = useRelationshipDuration(RELATIONSHIP_START)
+  const { startDate, partnerA, partnerB, siteTitle, startDateIso } =
+    useSiteConfig()
+  const { years, days } = useRelationshipDuration(startDate)
   const durationText = formatDuration({ years, days })
+  const displayDate = startDateIso
+    ? new Date(`${startDateIso}T12:00:00`).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : startDate.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
 
   return (
     <section
       id="hero"
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-20 text-center"
     >
-      {/* Background blobs */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -42,15 +52,15 @@ export default function Hero() {
 
       <ScrollReveal className="relative z-10">
         <p className="mb-4 text-sm font-medium uppercase tracking-[0.3em] text-blush-400">
-          21 juin 2024
+          {displayDate}
         </p>
       </ScrollReveal>
 
       <ScrollReveal delay={150} className="relative z-10">
         <h1 className="font-display text-4xl font-light leading-tight text-stone-800 sm:text-6xl md:text-7xl">
-          {durationText}
+          {siteTitle || durationText}
           <span className="block bg-gradient-to-r from-blush-400 to-rose-gold bg-clip-text font-semibold italic text-transparent">
-            ensemble
+            {siteTitle ? `${partnerA} & ${partnerB}` : 'ensemble'}
           </span>
         </h1>
       </ScrollReveal>

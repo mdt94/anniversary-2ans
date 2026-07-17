@@ -195,45 +195,52 @@ export default function MemoryDetailModal({
               </div>
             ) : (
               <div
-                className={`flex aspect-[4/3] items-center justify-center rounded-2xl bg-gradient-to-br ${step.gradient}`}
+                className={`flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-2xl bg-gradient-to-br ${step.gradient}`}
               >
                 <div className="text-center text-dusty/60">
                   <span className="text-4xl">{step.icon}</span>
                   <p className="mt-3 text-sm">Aucune photo pour ce souvenir</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => onAddPhotos(step)}
+                  className="inline-flex items-center gap-2 rounded-full border border-blush-200 bg-white/80 px-5 py-2.5 text-sm font-medium text-blush-500 shadow-sm transition hover:border-blush-300 hover:text-blush-600"
+                >
+                  <span aria-hidden="true">📷</span>
+                  Ajouter des photos
+                </button>
               </div>
             )}
           </div>
 
-          {isAdmin && (
-            <div className="flex flex-wrap gap-3 border-t border-blush-100 px-6 py-4 sm:px-8">
-              <button
-                type="button"
-                onClick={() => onAddPhotos(step)}
-                className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
-              >
-                Ajouter des photos
-              </button>
-              {step.custom && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(step)}
-                    className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(step)}
-                    className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-                  >
-                    Supprimer
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-3 border-t border-blush-100 px-6 py-4 sm:px-8">
+            <button
+              type="button"
+              onClick={() => onAddPhotos(step)}
+              className="inline-flex items-center gap-2 rounded-full border border-blush-200 bg-blush-50/60 px-5 py-2.5 text-sm font-medium text-blush-500 transition hover:border-blush-300 hover:bg-blush-50 hover:text-blush-600"
+            >
+              <span aria-hidden="true">📷</span>
+              Ajouter des photos
+            </button>
+            {isAdmin && step.custom && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onEdit(step)}
+                  className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
+                >
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(step)}
+                  className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                >
+                  Supprimer
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

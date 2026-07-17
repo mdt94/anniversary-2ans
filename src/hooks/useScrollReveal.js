@@ -16,8 +16,8 @@ export function useScrollReveal(options = {}) {
         }
       },
       {
-        threshold: options.threshold ?? 0.15,
-        rootMargin: options.rootMargin ?? '0px 0px -40px 0px',
+        threshold: options.threshold ?? 0.12,
+        rootMargin: options.rootMargin ?? '0px 0px -8% 0px',
       },
     )
 

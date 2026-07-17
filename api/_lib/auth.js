@@ -2,11 +2,15 @@ import crypto from 'crypto'
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
-export function verifyPassword(password) {
+export function verifyEnvPassword(password) {
   return Boolean(
-    process.env.ADMIN_PASSWORD &&
-      password === process.env.ADMIN_PASSWORD,
+    process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD,
   )
+}
+
+/** @deprecated use verifyEnvPassword — kept for older imports */
+export function verifyPassword(password) {
+  return verifyEnvPassword(password)
 }
 
 export function createToken() {

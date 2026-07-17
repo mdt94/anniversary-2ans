@@ -2,8 +2,6 @@ import { verifyToken } from './_lib/auth.js'
 import { addLetter, getLetters } from './_lib/letters-store.js'
 import { methodNotAllowed, sendJson } from './_lib/http.js'
 
-const RECIPIENTS = new Set(['Yann', 'Elma'])
-
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
@@ -30,9 +28,9 @@ export default async function handler(req, res) {
     try {
       const { to, content } = req.body ?? {}
 
-      if (!RECIPIENTS.has(to)) {
+      if (!to?.trim()) {
         return sendJson(res, 400, {
-          error: 'Choisis un destinataire : Yann ou Elma',
+          error: 'Choisis un destinataire',
         })
       }
 
@@ -40,7 +38,7 @@ export default async function handler(req, res) {
         return sendJson(res, 400, { error: 'La lettre ne peut pas être vide' })
       }
 
-      const letter = await addLetter({ to, content })
+      const letter = await addLetter({ to: to.trim(), content })
       return sendJson(res, 201, letter)
     } catch (error) {
       console.error('POST /api/letters failed:', error)

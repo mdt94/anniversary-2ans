@@ -1,5 +1,9 @@
-import { createToken, verifyPassword } from './_lib/auth.js'
+import { createToken, verifyEnvPassword } from './_lib/auth.js'
 import { methodNotAllowed, sendJson } from './_lib/http.js'
+import {
+  getSiteConfig,
+  verifyPasswordHash,
+} from './_lib/site-config-store.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,7 +13,24 @@ export default async function handler(req, res) {
   try {
     const { password } = req.body ?? {}
 
-    if (!verifyPassword(password)) {
+    if (!password) {
+      return sendJson(res, 401, { error: 'Mot de passe incorrect' })
+    }
+
+    let ok = verifyEnvPassword(password)
+
+    if (!ok) {
+      try {
+        const config = await getSiteConfig()
+        if (config.setupComplete && config.passwordHash) {
+          ok = verifyPasswordHash(password, config.passwordHash)
+        }
+      } catch {
+        // Blob unavailable — fall through to env-only
+      }
+    }
+
+    if (!ok) {
       return sendJson(res, 401, { error: 'Mot de passe incorrect' })
     }
 
@@ -17,7 +38,7 @@ export default async function handler(req, res) {
     if (!token) {
       return sendJson(res, 500, {
         error:
-          'Configuration incomplète. Ajoute ADMIN_PASSWORD et ADMIN_SECRET sur Vercel.',
+          'Configuration incomplète. Ajoute ADMIN_SECRET sur Vercel.',
       })
     }
 

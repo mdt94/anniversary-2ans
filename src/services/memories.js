@@ -168,7 +168,16 @@ export async function fetchMemories() {
 
 export async function verifyPassword(password) {
   if (isLocalMode()) {
-    const expected = import.meta.env.VITE_ADMIN_PASSWORD
+    let expected = import.meta.env.VITE_ADMIN_PASSWORD
+    try {
+      const config = JSON.parse(
+        localStorage.getItem('anniversary-site-config') ?? 'null',
+      )
+      if (config?.localPassword) expected = config.localPassword
+    } catch {
+      // ignore
+    }
+
     if (!expected || password !== expected) {
       throw new Error('Mot de passe incorrect')
     }

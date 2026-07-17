@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ScrollReveal from './ScrollReveal'
 import { useLetters } from '../hooks/useLetters'
+import { useSiteConfig } from '../hooks/useSiteConfig'
 import {
   clearStoredToken,
   createLetter,
@@ -54,9 +55,11 @@ function LetterCard({ letter }) {
 
 export default function Letter() {
   const { letters, addLetter } = useLetters()
+  const { partnerA, partnerB } = useSiteConfig()
+  const recipients = [partnerA, partnerB].filter(Boolean)
   const [step, setStep] = useState('form')
   const [password, setPassword] = useState('')
-  const [to, setTo] = useState('Elma')
+  const [to, setTo] = useState(partnerA || 'Elma')
   const [content, setContent] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -64,6 +67,12 @@ export default function Letter() {
   useEffect(() => {
     setStep(getStoredToken() ? 'form' : 'password')
   }, [])
+
+  useEffect(() => {
+    if (recipients.length && !recipients.includes(to)) {
+      setTo(recipients[0])
+    }
+  }, [partnerA, partnerB])
 
   const handlePasswordSubmit = async (event) => {
     event.preventDefault()
@@ -142,7 +151,7 @@ export default function Letter() {
                 Écrire une lettre
               </h3>
               <p className="mt-2 text-sm text-dusty">
-                Rédige un nouveau message pour Yann ou pour Elma.
+                Rédige un nouveau message pour {partnerA} ou pour {partnerB}.
               </p>
 
               {step === 'password' ? (
@@ -171,7 +180,7 @@ export default function Letter() {
                       Destinataire
                     </span>
                     <div className="grid grid-cols-2 gap-3">
-                      {['Yann', 'Elma'].map((name) => (
+                      {recipients.map((name) => (
                         <button
                           key={name}
                           type="button"
