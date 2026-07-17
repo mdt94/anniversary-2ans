@@ -29,7 +29,14 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { title, caption, date, photos = [], accent = 'blush' } = req.body ?? {}
+      const {
+        title,
+        caption,
+        date,
+        photos = [],
+        accent = 'blush',
+        memoryId = null,
+      } = req.body ?? {}
 
       if (!title?.trim()) {
         return sendJson(res, 400, { error: 'Le titre du widget est requis.' })
@@ -43,10 +50,11 @@ export default async function handler(req, res) {
       const widget = {
         id: createWidgetId(),
         title: title.trim(),
-        caption: (caption || '').trim(),
+        caption: (caption || title).trim(),
         date,
-        photos: Array.isArray(photos) ? photos.slice(0, 6) : [],
+        photos: Array.isArray(photos) ? photos.slice(0, 12) : [],
         accent,
+        memoryId,
         createdAt: new Date().toISOString(),
       }
 

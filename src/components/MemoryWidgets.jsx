@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ScrollReveal from './ScrollReveal'
+import { buildTimelineSteps } from '../data/timelineSteps'
+import { useMemories } from '../hooks/useMemories'
 import {
   clearStoredToken,
   createWidget,
@@ -24,10 +26,14 @@ function formatDate(isoDate) {
 }
 
 function accentClass(accent) {
-  return ACCENTS.find((item) => item.id === accent)?.className || ACCENTS[0].className
+  return (
+    ACCENTS.find((item) => item.id === accent)?.className || ACCENTS[0].className
+  )
 }
 
 function WidgetCard({ widget, isAdmin, onDelete }) {
+  const legend = widget.caption || widget.title
+
   return (
     <article className="group overflow-hidden rounded-3xl border border-blush-100/80 bg-white/70 shadow-md shadow-blush-100/40 backdrop-blur-sm transition duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-blush-200/40">
       <div
@@ -36,7 +42,7 @@ function WidgetCard({ widget, isAdmin, onDelete }) {
         {widget.photos?.[0] ? (
           <img
             src={widget.photos[0]}
-            alt={widget.title}
+            alt={legend}
             className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
           />
         ) : (
@@ -55,11 +61,8 @@ function WidgetCard({ widget, isAdmin, onDelete }) {
           {formatDate(widget.date)}
         </p>
         <h3 className="mt-1 font-display text-2xl font-semibold text-stone-800">
-          {widget.title}
+          {legend}
         </h3>
-        {widget.caption && (
-          <p className="mt-2 text-sm leading-relaxed text-dusty">{widget.caption}</p>
-        )}
         {isAdmin && (
           <button
             type="button"
@@ -74,16 +77,15 @@ function WidgetCard({ widget, isAdmin, onDelete }) {
   )
 }
 
-function WidgetForm({ onClose, onCreated }) {
+function WidgetForm({ memories, onClose, onCreated }) {
   const [step, setStep] = useState(getStoredToken() ? 'form' : 'password')
   const [password, setPassword] = useState('')
-  const [title, setTitle] = useState('')
-  const [caption, setCaption] = useState('')
-  const [date, setDate] = useState('')
+  const [memoryId, setMemoryId] = useState(memories[0]?.id || '')
   const [accent, setAccent] = useState('blush')
-  const [files, setFiles] = useState([])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const selected = memories.find((memory) => memory.id === memoryId) || null
 
   const handlePassword = async (event) => {
     event.preventDefault()
@@ -102,14 +104,21 @@ function WidgetForm({ onClose, onCreated }) {
   const handleCreate = async (event) => {
     event.preventDefault()
     setError('')
+
+    if (!selected) {
+      setError('Choisissez un souvenir de la frise.')
+      return
+    }
+
     setSubmitting(true)
     try {
       const widget = await createWidget({
-        title,
-        caption,
-        date,
+        title: selected.title,
+        caption: selected.title,
+        date: selected.sortDate,
         accent,
-        photoFiles: files,
+        photos: selected.photos ?? [],
+        memoryId: selected.id,
       })
       onCreated(widget)
       onClose()
@@ -175,38 +184,49 @@ function WidgetForm({ onClose, onCreated }) {
           <form onSubmit={handleCreate} className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-xs uppercase tracking-widest text-dusty">
-                Titre
+                Date / souvenir
               </span>
-              <input
+              <select
                 required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={memoryId}
+                onChange={(e) => setMemoryId(e.target.value)}
                 className="w-full rounded-xl border border-blush-100 bg-white px-4 py-3 outline-none focus:border-blush-300"
-              />
+              >
+                {memories.length === 0 ? (
+                  <option value="">Aucun souvenir disponible</option>
+                ) : (
+                  memories.map((memory) => (
+                    <option key={memory.id} value={memory.id}>
+                      {memory.date} — {memory.title}
+                    </option>
+                  ))
+                )}
+              </select>
             </label>
-            <label className="block">
-              <span className="mb-1 block text-xs uppercase tracking-widest text-dusty">
-                Date
-              </span>
-              <input
-                required
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-blush-100 bg-white px-4 py-3 outline-none focus:border-blush-300"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs uppercase tracking-widest text-dusty">
-                Légende
-              </span>
-              <textarea
-                rows={3}
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="w-full rounded-xl border border-blush-100 bg-white px-4 py-3 outline-none focus:border-blush-300"
-              />
-            </label>
+
+            {selected && (
+              <div className="rounded-2xl border border-blush-100 bg-white/80 p-4">
+                <p className="text-xs uppercase tracking-widest text-blush-400">
+                  Aperçu
+                </p>
+                <p className="mt-1 font-display text-xl text-stone-800">
+                  {selected.title}
+                </p>
+                <p className="mt-1 text-sm text-dusty">
+                  {(selected.photos?.length || 0) === 0
+                    ? 'Aucune photo liée pour l’instant'
+                    : `${selected.photos.length} photo${selected.photos.length > 1 ? 's' : ''} liée${selected.photos.length > 1 ? 's' : ''}`}
+                </p>
+                {selected.photos?.[0] && (
+                  <img
+                    src={selected.photos[0]}
+                    alt=""
+                    className="mt-3 aspect-[4/3] w-full rounded-xl object-cover"
+                  />
+                )}
+              </div>
+            )}
+
             <fieldset>
               <legend className="mb-2 text-xs uppercase tracking-widest text-dusty">
                 Accent
@@ -228,22 +248,11 @@ function WidgetForm({ onClose, onCreated }) {
                 ))}
               </div>
             </fieldset>
-            <label className="block">
-              <span className="mb-1 block text-xs uppercase tracking-widest text-dusty">
-                Photos
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => setFiles(Array.from(e.target.files || []))}
-                className="w-full text-sm text-dusty"
-              />
-            </label>
+
             {error && <p className="text-sm text-blush-500">{error}</p>}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !selected}
               className="w-full rounded-full bg-gradient-to-r from-blush-400 to-rose-gold px-5 py-3 font-medium text-white disabled:opacity-60"
             >
               {submitting ? 'Création…' : 'Créer le widget'}
@@ -260,6 +269,12 @@ export default function MemoryWidgets() {
   const [formOpen, setFormOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(Boolean(getStoredToken()))
   const [loading, setLoading] = useState(true)
+  const { memories, staticPhotos, staticTitles } = useMemories()
+
+  const timelineMemories = useMemo(
+    () => buildTimelineSteps(memories, staticPhotos, staticTitles),
+    [memories, staticPhotos, staticTitles],
+  )
 
   useEffect(() => {
     fetchWidgets()
@@ -294,8 +309,8 @@ export default function MemoryWidgets() {
             <span className="font-semibold italic text-rose-gold">cartes</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-dusty">
-            Créez de petits widgets pour immortaliser un instant — une photo, une
-            date, une émotion.
+            Choisissez une date de la frise : le widget reprend automatiquement
+            le nom du souvenir et ses photos.
           </p>
           <button
             type="button"
@@ -310,12 +325,15 @@ export default function MemoryWidgets() {
         {loading ? (
           <p className="text-center text-dusty">Chargement des widgets…</p>
         ) : widgets.length === 0 ? (
-          <ScrollReveal variant="scale" className="mx-auto max-w-md rounded-3xl border border-dashed border-blush-200 bg-white/40 px-8 py-16 text-center">
+          <ScrollReveal
+            variant="scale"
+            className="mx-auto max-w-md rounded-3xl border border-dashed border-blush-200 bg-white/40 px-8 py-16 text-center"
+          >
             <p className="font-display text-2xl text-stone-700">
               Aucun widget pour l’instant
             </p>
             <p className="mt-2 text-sm text-dusty">
-              Ajoutez votre premier souvenir sous forme de carte.
+              Sélectionnez un souvenir de la frise pour en créer un.
             </p>
           </ScrollReveal>
         ) : (
@@ -335,6 +353,7 @@ export default function MemoryWidgets() {
 
       {formOpen && (
         <WidgetForm
+          memories={timelineMemories}
           onClose={() => setFormOpen(false)}
           onCreated={(widget) => {
             setWidgets((current) => [widget, ...current])

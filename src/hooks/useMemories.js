@@ -2,13 +2,24 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   deleteMemory as deleteMemoryRequest,
   fetchMemories,
+  fetchStaticMeta,
   fetchStaticPhotos,
   updateMemory as updateMemoryRequest,
+  updateStaticMemoryTitle,
 } from '../services/memories'
+
+function titlesFromMeta(meta) {
+  const titles = {}
+  for (const [id, value] of Object.entries(meta || {})) {
+    if (value?.title) titles[id] = value.title
+  }
+  return titles
+}
 
 export function useMemories() {
   const [memories, setMemories] = useState([])
   const [staticPhotos, setStaticPhotos] = useState({})
+  const [staticTitles, setStaticTitles] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -17,16 +28,19 @@ export function useMemories() {
     setError(null)
 
     try {
-      const [customMemories, photos] = await Promise.all([
+      const [customMemories, photos, meta] = await Promise.all([
         fetchMemories(),
         fetchStaticPhotos(),
+        fetchStaticMeta(),
       ])
       setMemories(customMemories)
       setStaticPhotos(photos)
+      setStaticTitles(titlesFromMeta(meta))
     } catch (err) {
       setError(err.message)
       setMemories([])
       setStaticPhotos({})
+      setStaticTitles({})
     } finally {
       setLoading(false)
     }
@@ -57,6 +71,22 @@ export function useMemories() {
     }))
   }, [])
 
+  const renameStaticMemory = useCallback(async (id, title) => {
+    const result = await updateStaticMemoryTitle(id, title)
+    setStaticTitles((current) => ({
+      ...current,
+      [id]: result.title,
+    }))
+    return result
+  }, [])
+
+  const applyStaticTitle = useCallback((id, title) => {
+    setStaticTitles((current) => ({
+      ...current,
+      [id]: title,
+    }))
+  }, [])
+
   const updateMemory = useCallback(
     async (id, payload) => {
       const updated = await updateMemoryRequest(id, payload)
@@ -77,6 +107,7 @@ export function useMemories() {
   return {
     memories,
     staticPhotos,
+    staticTitles,
     loading,
     error,
     reloadMemories: loadMemories,
@@ -84,6 +115,8 @@ export function useMemories() {
     replaceMemory,
     removeMemory,
     updateStaticPhotos,
+    renameStaticMemory,
+    applyStaticTitle,
     updateMemory,
     deleteMemory,
   }

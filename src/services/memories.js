@@ -2,6 +2,7 @@ import { upload } from '@vercel/blob/client'
 
 const STORAGE_KEY = 'anniversary-custom-memories'
 const STATIC_PHOTOS_KEY = 'anniversary-static-photos'
+const STATIC_META_KEY = 'anniversary-static-meta'
 const TOKEN_KEY = 'anniversary-admin-token'
 const REQUEST_TIMEOUT_MS = 20_000
 const REMOVED_TEST_DATES = new Set(['2022-06-15', '2026-07-17'])
@@ -29,6 +30,18 @@ function readLocalStaticPhotos() {
 
 function writeLocalStaticPhotos(photos) {
   localStorage.setItem(STATIC_PHOTOS_KEY, JSON.stringify(photos))
+}
+
+function readLocalStaticMeta() {
+  try {
+    return JSON.parse(localStorage.getItem(STATIC_META_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeLocalStaticMeta(meta) {
+  localStorage.setItem(STATIC_META_KEY, JSON.stringify(meta))
 }
 
 function writeLocalMemories(memories) {
@@ -339,6 +352,58 @@ export async function fetchStaticPhotos() {
 
   if (!response.ok) {
     throw new Error(data.error ?? 'Impossible de charger les photos')
+  }
+
+  return data
+}
+
+export async function fetchStaticMeta() {
+  if (isLocalMode()) {
+    return readLocalStaticMeta()
+  }
+
+  const response = await fetchWithTimeout('/api/static-meta')
+  const data = await parseJsonResponse(response)
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Impossible de charger les titres')
+  }
+
+  return data
+}
+
+export async function updateStaticMemoryTitle(id, title) {
+  if (!id?.startsWith('static-')) {
+    throw new Error('Souvenir invalide')
+  }
+  if (!title?.trim()) {
+    throw new Error('Le nom du souvenir est obligatoire')
+  }
+
+  if (isLocalMode()) {
+    const meta = readLocalStaticMeta()
+    meta[id] = {
+      ...(meta[id] || {}),
+      title: title.trim(),
+      updatedAt: new Date().toISOString(),
+    }
+    writeLocalStaticMeta(meta)
+    return { id, title: title.trim() }
+  }
+
+  const token = getStoredToken()
+  const response = await fetchWithTimeout('/api/static-meta', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ id, title }),
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok) {
+    throw new Error(data.error ?? 'Erreur lors de la modification')
   }
 
   return data

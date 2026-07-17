@@ -4,6 +4,7 @@ import {
   createMemory,
   getStoredToken,
   updateMemory,
+  updateStaticMemoryTitle,
   verifyPassword,
 } from '../services/memories'
 
@@ -62,6 +63,7 @@ export default function MemoryFormModal({
   const [submitting, setSubmitting] = useState(false)
 
   const isEdit = mode === 'edit'
+  const isStaticEdit = isEdit && memory?.id?.startsWith('static-')
 
   useEffect(() => {
     if (!open) return
@@ -113,6 +115,13 @@ export default function MemoryFormModal({
     setSubmitting(true)
 
     try {
+      if (isStaticEdit) {
+        const result = await updateStaticMemoryTitle(memory.id, title)
+        onSuccess(result)
+        onClose()
+        return
+      }
+
       const payload = {
         title,
         date,
@@ -201,7 +210,11 @@ export default function MemoryFormModal({
               {isEdit ? 'Modification' : 'Nouveau souvenir'}
             </p>
             <h3 className="mt-2 font-display text-3xl font-semibold text-stone-800">
-              {isEdit ? 'Mettre à jour la frise' : 'Enrichir notre frise'}
+              {isStaticEdit
+                ? 'Renommer le souvenir'
+                : isEdit
+                  ? 'Mettre à jour la frise'
+                  : 'Enrichir notre frise'}
             </h3>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -219,19 +232,22 @@ export default function MemoryFormModal({
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">
-                  Date du souvenir
-                </span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="w-full rounded-xl border border-blush-200 bg-cream px-4 py-3 outline-none transition focus:border-blush-400 focus:ring-2 focus:ring-blush-100"
-                  required
-                />
-              </label>
+              {!isStaticEdit && (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-stone-700">
+                    Date du souvenir
+                  </span>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                    className="w-full rounded-xl border border-blush-200 bg-cream px-4 py-3 outline-none transition focus:border-blush-400 focus:ring-2 focus:ring-blush-100"
+                    required
+                  />
+                </label>
+              )}
 
+              {!isStaticEdit && (
               <div>
                 <span className="mb-2 block text-sm font-medium text-stone-700">
                   Photos du souvenir
@@ -283,6 +299,7 @@ export default function MemoryFormModal({
                   </div>
                 )}
               </div>
+              )}
 
               {error && <p className="text-sm text-rose-600">{error}</p>}
 
@@ -293,9 +310,11 @@ export default function MemoryFormModal({
               >
                 {submitting
                   ? 'Enregistrement…'
-                  : isEdit
-                    ? 'Enregistrer les modifications'
-                    : 'Ajouter à la frise'}
+                  : isStaticEdit
+                    ? 'Enregistrer le nom'
+                    : isEdit
+                      ? 'Enregistrer les modifications'
+                      : 'Ajouter à la frise'}
               </button>
             </form>
           </>

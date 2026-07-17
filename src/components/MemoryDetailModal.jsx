@@ -222,23 +222,21 @@ export default function MemoryDetailModal({
               <span aria-hidden="true">📷</span>
               Ajouter des photos
             </button>
+            <button
+              type="button"
+              onClick={() => onEdit(step)}
+              className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
+            >
+              Modifier le nom
+            </button>
             {isAdmin && step.custom && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onEdit(step)}
-                  className="rounded-full border border-blush-200 px-5 py-2.5 text-sm font-medium text-dusty transition hover:border-blush-300 hover:text-blush-500"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(step)}
-                  className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-                >
-                  Supprimer
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => onDelete(step)}
+                className="rounded-full border border-rose-200 px-5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+              >
+                Supprimer
+              </button>
             )}
           </div>
         </div>

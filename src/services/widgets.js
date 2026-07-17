@@ -127,19 +127,31 @@ export async function fetchWidgets() {
   return data.widgets ?? []
 }
 
-export async function createWidget({ title, caption, date, accent, photoFiles }) {
-  let photos = []
+export async function createWidget({
+  title,
+  caption,
+  date,
+  accent,
+  photos = [],
+  photoFiles,
+  memoryId = null,
+}) {
+  let nextPhotos = Array.isArray(photos) ? [...photos] : []
 
   if (isLocalMode()) {
-    photos = await Promise.all((photoFiles || []).map(readFileAsDataUrl))
+    if (photoFiles?.length) {
+      const uploaded = await Promise.all(photoFiles.map(readFileAsDataUrl))
+      nextPhotos = [...nextPhotos, ...uploaded]
+    }
     const widgets = readLocalWidgets()
     const widget = {
       id: crypto.randomUUID(),
       title: title.trim(),
-      caption: (caption || '').trim(),
+      caption: (caption || title).trim(),
       date,
-      photos,
+      photos: nextPhotos.slice(0, 12),
       accent: accent || 'blush',
+      memoryId,
       createdAt: new Date().toISOString(),
     }
     writeLocalWidgets([widget, ...widgets])
@@ -147,7 +159,8 @@ export async function createWidget({ title, caption, date, accent, photoFiles })
   }
 
   if (photoFiles?.length) {
-    photos = await uploadPhotos(photoFiles)
+    const uploaded = await uploadPhotos(photoFiles)
+    nextPhotos = [...nextPhotos, ...uploaded]
   }
 
   const response = await fetchWithTimeout('/api/widgets', {
@@ -156,7 +169,14 @@ export async function createWidget({ title, caption, date, accent, photoFiles })
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getStoredToken()}`,
     },
-    body: JSON.stringify({ title, caption, date, accent, photos }),
+    body: JSON.stringify({
+      title,
+      caption: caption || title,
+      date,
+      accent,
+      photos: nextPhotos.slice(0, 12),
+      memoryId,
+    }),
   })
   const data = await parseJsonResponse(response)
   if (!response.ok) throw new Error(data.error || 'Création impossible')

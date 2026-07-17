@@ -3,82 +3,9 @@ import MemoryDetailModal from './MemoryDetailModal'
 import MemoryFormModal from './MemoryFormModal'
 import MemoryPhotosModal from './MemoryPhotosModal'
 import ScrollReveal from './ScrollReveal'
+import { buildTimelineSteps } from '../data/timelineSteps'
 import { useMemories } from '../hooks/useMemories'
 import { getStoredToken } from '../services/memories'
-
-const STATIC_STEPS = [
-  {
-    id: 'static-meeting',
-    sortDate: '2024-06-21',
-    date: '21 juin 2024',
-    title: 'Notre rencontre',
-    description:
-      'Le soir où nos regards se sont croisés à 21h, et où tout a commencé, comme dans un film dont on ne voulait pas que la fin arrive.',
-    gradient: 'from-blush-200 via-blush-100 to-cream',
-    icon: '✨',
-    photos: [],
-    custom: false,
-  },
-  {
-    id: 'static-trip',
-    sortDate: '2024-09-01',
-    date: 'Septembre 2024',
-    title: 'Premier voyage',
-    description:
-      'Nos valises pleines de rêves, des routes inconnues et des souvenirs gravés pour toujours dans nos cœurs.',
-    gradient: 'from-rose-100 via-blush-50 to-cream',
-    icon: '🌸',
-    photos: [],
-    custom: false,
-  },
-  {
-    id: 'static-one-year',
-    sortDate: '2025-06-21',
-    date: '21 juin 2025',
-    title: 'Un an déjà',
-    description:
-      "365 jours de rires, de complicité et de moments magiques. Une première bougie sur notre gâteau d'amour.",
-    gradient: 'from-blush-300/40 via-blush-100 to-cream',
-    icon: '🎂',
-    photos: [],
-    custom: false,
-  },
-  {
-    id: 'static-two-years',
-    sortDate: '2026-06-21',
-    date: '21 juin 2026',
-    title: 'Deux ans ensemble',
-    description:
-      'Deux années de bonheur partagé — et chaque jour qui suit est un nouveau chapitre. La plus belle aventure continue…',
-    gradient: 'from-rose-gold/30 via-blush-100 to-cream',
-    icon: '💕',
-    photos: [],
-    custom: false,
-  },
-]
-
-function formatDisplayDate(isoDate) {
-  const parsed = new Date(`${isoDate}T12:00:00`)
-  return parsed.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-function normalizeCustomMemory(memory) {
-  return {
-    id: memory.id,
-    sortDate: memory.date,
-    date: formatDisplayDate(memory.date),
-    title: memory.title,
-    description: null,
-    gradient: 'from-blush-100 via-rose-100 to-cream',
-    icon: '💌',
-    photos: memory.photos ?? [],
-    custom: true,
-  }
-}
 
 function TimelineStep({ step, index, onOpen }) {
   const isEven = index % 2 === 0
@@ -173,9 +100,11 @@ export default function Timeline() {
   const {
     memories,
     staticPhotos,
+    staticTitles,
     addMemory,
     replaceMemory,
     updateStaticPhotos,
+    applyStaticTitle,
     deleteMemory,
   } = useMemories()
 
@@ -186,16 +115,10 @@ export default function Timeline() {
     return () => window.removeEventListener('storage', syncAdmin)
   }, [formOpen, photosOpen, selectedStep])
 
-  const steps = useMemo(() => {
-    const staticWithPhotos = STATIC_STEPS.map((step) => ({
-      ...step,
-      photos: staticPhotos[step.id] ?? [],
-    }))
-    const customSteps = memories.map(normalizeCustomMemory)
-    return [...staticWithPhotos, ...customSteps].sort((a, b) =>
-      a.sortDate.localeCompare(b.sortDate),
-    )
-  }, [memories, staticPhotos])
+  const steps = useMemo(
+    () => buildTimelineSteps(memories, staticPhotos, staticTitles),
+    [memories, staticPhotos, staticTitles],
+  )
 
   const openCreateForm = () => {
     setFormMode('create')
@@ -210,6 +133,7 @@ export default function Timeline() {
       title: step.title,
       date: step.sortDate,
       photos: step.photos ?? [],
+      custom: step.custom,
     })
     setSelectedStep(null)
     setFormOpen(true)
@@ -225,6 +149,7 @@ export default function Timeline() {
   }
 
   const handleDelete = async (step) => {
+    if (!step.custom) return
     const confirmed = window.confirm(
       `Supprimer le souvenir « ${step.title} » ?`,
     )
@@ -238,11 +163,17 @@ export default function Timeline() {
     }
   }
 
-  const handleFormSuccess = (memory) => {
+  const handleFormSuccess = async (result) => {
+    if (formMode === 'edit' && editingMemory?.id?.startsWith('static-')) {
+      applyStaticTitle(editingMemory.id, result.title)
+      setIsAdmin(true)
+      return
+    }
+
     if (formMode === 'edit') {
-      replaceMemory(memory)
+      replaceMemory(result)
     } else {
-      addMemory(memory)
+      addMemory(result)
     }
     setIsAdmin(true)
   }
